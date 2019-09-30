@@ -8,12 +8,13 @@ from datetime import datetime
 
 from .helpers import *
 
+MEDIA_PATH = "media"
+
 
 ##############
 # Note Class #
 ##############
 class Note(object):
-    __MEDIA_PATH = "media/"
     __ISO_DATE_FORMAT = "%Y%m%dT%H%M%SZ"
     __TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
@@ -62,7 +63,8 @@ class Note(object):
 
         replacements = (
             # Handle Checkboxes
-            ('<en-todo checked="false"/>', '-<ignore> [ ] '),    # without this hack html2text will convert '-' to '\\-' because there is space after dash
+            # without this hack html2text will convert '-' to '\\-' because there is space after dash
+            ('<en-todo checked="false"/>', '-<ignore> [ ] '),
             ('<en-todo checked="false">', '-<ignore> [ ] '),
             ('<en-todo checked="true"/>', '-<ignore> [x] '),
             ('<en-todo checked="true">', '-<ignore> [x] '),
@@ -78,26 +80,30 @@ class Note(object):
         # Replace all attachments links with a hash placeholder
         for i in range(len(matches)):
             _hash = re.findall(r'[a-zA-Z0-9]{32}', matches[i])
-            if_image = "!" if "image" in matches[i] else "!"
-            placeholder = "\n%s[noteattachment%d][%s]" % (if_image, i+1, _hash[0])
+            attachment = next(x for x in self.__attachments if x.get_hash() == _hash[0])
+            if_image = "!" if "image" in matches[i] else ""
+            placeholder = f"\n{if_image}[{attachment.get_filename()}]({MEDIA_PATH}/{attachment.get_filename()})"
             self.__html = self.__html.replace(matches[i], placeholder)
 
     def convert_html_to_markdown(self):
         self.__markdown = self.html2text.handle(self.__html.decode('utf-8'))
 
     def create_file(self):
-        separate_dir = self.__title if len(self.__attachments) > 0 \
-            else ''
-        filename = os.path.join(self.__path, separate_dir, self.__filename)
+        filename = os.path.join(self.__path, self.get_separate_dir(), self.__filename)
         with open(filename, 'w', encoding='UTF-8', errors='replace') as outfile:
             outfile.write(self.__markdown)
         os.utime(filename, (self.__created_date.timestamp(), self.__updated_date.timestamp()))
+
+    def get_separate_dir(self):
+        return self.__title if len(self.__attachments) > 0 else ''
 
     def create_filename(self):
         # make sure title can be converted to filename
         if any(char.isalpha() or char.isdigit() for char in self.__title) == False:
           self.__title = "_" + str(self.__uuid)
-        self.__filename = check_for_double(make_dir_check(self.__path),  url_safe_string(self.__title[:128]) + ".md")
+        #TODO check_for_double doesn't work for note with files, because attachments don't added yet
+        self.__filename = check_for_double(make_dir_check(os.path.join(self.__path, self.get_separate_dir())),
+                                           url_safe_string(self.__title[:128]) + ".md")
     
     def create_markdown(self):
         self.clean_html()
@@ -114,7 +120,8 @@ class Note(object):
             self.__markdown += "\n---"
             self.__markdown += "\n### ATTACHMENTS"
             for i in range(len(self.__attachments)):
-                self.__markdown += "\n[%s]: %s%s" % (self.__attachments[i].get_hash(), self.__MEDIA_PATH, self.__attachments[i].get_filename())
+                self.__markdown += "\n[%s]: %s/%s" % (self.__attachments[i].get_hash(), MEDIA_PATH,
+                                                     self.__attachments[i].get_filename())
                 self.__markdown += self.__attachments[i].get_attributes()
                 
     def create_markdown_note_attr(self):
@@ -175,7 +182,6 @@ import binascii  # Used to convert hash output to string
 
 
 class Attachment(object):
-    __MEDIA_PATH = "media/"
     __TIME_FORMAT = "%Y-%m-%d_%H-%M-%S"
 
     def __init__(self, note):
@@ -194,8 +200,9 @@ class Attachment(object):
 
     def create_file(self):
         # Create the file and set the original timestamps
-        __path = os.path.join(make_dir_check(os.path.join(self.__path, self.__note.get_title())), self.__filename)
-        with open(__path,'wb') as outfile:
+        __path = os.path.join(make_dir_check(os.path.join(self.__path, self.__note.get_title(), MEDIA_PATH)),
+                              self.__filename)
+        with open(__path, 'wb') as outfile:
             outfile.write(self.__rawdata)
         os.utime(__path, (self.__created_date.timestamp(), self.__created_date.timestamp()))
         self.__rawdata = ""
@@ -223,7 +230,8 @@ class Attachment(object):
         self.__filename = self.__filename.replace(" ", "_")
         
         # Try the filename and if a file with the same name exists add a counter to the end
-        self.__filename = check_for_double(os.path.join(self.__path, self.__MEDIA_PATH),  self.__filename)
+        self.__filename = check_for_double(os.path.join(self.__path, self.__note.get_title(), MEDIA_PATH),
+                                           self.__filename)
         
     def create_hash(self):
         md5 = hashlib.md5()
@@ -241,7 +249,7 @@ class Attachment(object):
         
     def get_attributes(self):
         # Create a string of markdown code neatly formatted for all attributes
-        export = "\n[%s](%s%s)" % (self.__filename, self.__MEDIA_PATH, self.__filename)
+        export = "\n[%s](%s/%s)" % (self.__filename, MEDIA_PATH, self.__filename)
         if len(self.__attributes) > 0:
             export += "\n>hash: %s  " % (self.__hash)
             for attr in self.__attributes:
