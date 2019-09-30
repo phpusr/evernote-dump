@@ -86,9 +86,12 @@ class Note(object):
         self.__markdown = self.html2text.handle(self.__html.decode('utf-8'))
 
     def create_file(self):
-        with open(os.path.join(self.__path, self.__filename), 'w', encoding='UTF-8', errors='replace') as outfile:
+        separate_dir = self.__title if len(self.__attachments) > 0 \
+            else ''
+        filename = os.path.join(self.__path, separate_dir, self.__filename)
+        with open(filename, 'w', encoding='UTF-8', errors='replace') as outfile:
             outfile.write(self.__markdown)
-        os.utime(os.path.join(self.__path, self.__filename), (self.__created_date.timestamp(), self.__updated_date.timestamp()))
+        os.utime(filename, (self.__created_date.timestamp(), self.__updated_date.timestamp()))
 
     def create_filename(self):
         # make sure title can be converted to filename
