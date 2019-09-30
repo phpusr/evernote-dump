@@ -120,8 +120,6 @@ class Note(object):
             self.__markdown += "\n---"
             self.__markdown += "\n### ATTACHMENTS"
             for i in range(len(self.__attachments)):
-                self.__markdown += "\n[%s]: %s/%s" % (self.__attachments[i].get_hash(), MEDIA_PATH,
-                                                     self.__attachments[i].get_filename())
                 self.__markdown += self.__attachments[i].get_attributes()
                 
     def create_markdown_note_attr(self):
