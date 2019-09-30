@@ -14,6 +14,7 @@ evernote_dump/tags
 key
 __pycache__
 .idea
+.venv
 # Created by https://www.gitignore.io/api/pycharm
 
 ### PyCharm ###
