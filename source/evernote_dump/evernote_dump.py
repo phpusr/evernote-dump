@@ -6,11 +6,12 @@
 ###########
 
 import sys
+
 import os
 import xml.sax  # Steaming XML data for use with larger files
-from .note import Note, Attachment
-from .helpers import is_yes_no, choose_language, lang, is_python_three
 
+from .helpers import is_yes_no, choose_language, lang, is_python_three
+from .note import Note, Attachment
 
 global keep_file_names
 keep_file_names = True
@@ -44,7 +45,7 @@ class NoteHandler(xml.sax.ContentHandler):
             self.note = Note()
             self.note.set_path(os.path.join(self.path, self.current_file))
         elif tag == "resource":  # Found an attachment
-            self.attachment = Attachment()
+            self.attachment = Attachment(self.note)
             self.attachment.set_path(os.path.join(self.path, self.current_file))
             self.attachment.set_created_date(self.note.get_created_date())
             self.attachment.set_filename(self.note.get_title())

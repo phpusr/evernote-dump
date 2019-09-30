@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from .helpers import *
-from datetime import datetime
-import re  # Regex module for extracting note attachments
 import html2text  # Convert html notes to markdown
+import re  # Regex module for extracting note attachments
 import uuid
+from datetime import datetime
+
+from .helpers import *
 
 
 ##############
@@ -83,7 +84,7 @@ class Note(object):
 
     def convert_html_to_markdown(self):
         self.__markdown = self.html2text.handle(self.__html.decode('utf-8'))
-		
+
     def create_file(self):
         with open(os.path.join(self.__path, self.__filename), 'w', encoding='UTF-8', errors='replace') as outfile:
             outfile.write(self.__markdown)
@@ -174,8 +175,9 @@ class Attachment(object):
     __MEDIA_PATH = "media/"
     __TIME_FORMAT = "%Y-%m-%d_%H-%M-%S"
 
-    def __init__(self):
+    def __init__(self, note):
         """Take in encrypted data, un-encrypt it, save to a file, gather attributes"""
+        self.__note = note
         self.__created_date = datetime.now()
         self.__filename = ""
         self.__mime = ""
@@ -189,7 +191,7 @@ class Attachment(object):
 
     def create_file(self):
         # Create the file and set the original timestamps
-        __path = os.path.join(make_dir_check(os.path.join(self.__path, self.__MEDIA_PATH)), self.__filename)
+        __path = os.path.join(make_dir_check(os.path.join(self.__path, self.__note.get_title())), self.__filename)
         with open(__path,'wb') as outfile:
             outfile.write(self.__rawdata)
         os.utime(__path, (self.__created_date.timestamp(), self.__created_date.timestamp()))
