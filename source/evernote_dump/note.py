@@ -4,6 +4,7 @@
 import html2text  # Convert html notes to markdown
 import re  # Regex module for extracting note attachments
 import uuid
+from PIL import Image
 from datetime import datetime
 
 from .helpers import *
@@ -80,7 +81,7 @@ class Note(object):
         # Replace all attachments links with a hash placeholder
         for i in range(len(matches)):
             _hash = re.findall(r'[a-zA-Z0-9]{32}', matches[i])
-            attachment = next(x for x in self.__attachments if x.get_hash() == _hash[0])
+            attachment = next(x for x in self.__attachments if x.get_original_file_hash() == _hash[0])
             if_image = "!" if "image" in matches[i] else ""
             placeholder = f"\n{if_image}[{attachment.get_filename()}]({MEDIA_PATH}/{attachment.get_filename()})"
             self.__html = self.__html.replace(matches[i], placeholder)
@@ -202,9 +203,32 @@ class Attachment(object):
                               self.__filename)
         with open(__path, 'wb') as outfile:
             outfile.write(self.__rawdata)
+        self.resize_image(__path)
+        self.create_hash(__path)
         os.utime(__path, (self.__created_date.timestamp(), self.__created_date.timestamp()))
         self.__rawdata = ""
-        
+
+    @staticmethod
+    def resize_image(image_path, max_width=1920, max_height=1080):
+        ext = next(x for x in ['.jpg', '.jpeg', '.png'] if image_path.lower().endswith(x))
+        if ext is None:
+            return
+
+        image = Image.open(image_path)
+        new_width = image.width
+        new_height = image.height
+
+        if new_width > max_width:
+            new_width = max_width
+            new_height = round(new_width / image.width * image.height)
+        elif new_height > max_height:
+            new_width = round(max_height / new_height * new_width)
+            new_height = max_height
+
+        exif = image.info['exif']
+        image.resize((new_width, new_height), Image.ANTIALIAS)\
+            .save(image_path, exif=exif)
+
     def create_filename(self, keep_file_names):
         __base = self.__filename
 
@@ -231,9 +255,23 @@ class Attachment(object):
         self.__filename = check_for_double(os.path.join(self.__path, self.__note.get_title(), MEDIA_PATH),
                                            self.__filename)
         
-    def create_hash(self):
+    def create_original_file_hash(self):
         md5 = hashlib.md5()
         md5.update(self.__rawdata)
+        self.__original_file_hash = binascii.hexlify(md5.digest()).decode()
+
+    def create_hash(self, file_path):
+        buf_size = 65536  # lets read stuff in 64kb chunks!
+
+        md5 = hashlib.md5()
+
+        with open(file_path, 'rb') as f:
+            while True:
+                data = f.read(buf_size)
+                if not data:
+                    break
+                md5.update(data)
+
         self.__hash = binascii.hexlify(md5.digest()).decode()
 
     def finalize(self, keep_file_names):
@@ -242,7 +280,7 @@ class Attachment(object):
         except NameError:
             self.create_filename(True)
         self.decodeBase64()
-        self.create_hash()
+        self.create_original_file_hash()
         self.create_file()
         
     def get_attributes(self):
@@ -265,8 +303,8 @@ class Attachment(object):
     def get_filename(self):
         return self.__filename
     
-    def get_hash(self):
-        return self.__hash
+    def get_original_file_hash(self):
+        return self.__original_file_hash
     
     def get_uuid(self):
         return self.__uuid
