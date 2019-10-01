@@ -210,8 +210,8 @@ class Attachment(object):
 
     @staticmethod
     def resize_image(image_path, max_width=1920, max_height=1080):
-        ext = next(x for x in ['.jpg', '.jpeg', '.png'] if image_path.lower().endswith(x))
-        if ext is None:
+        ext = [x for x in ['.jpg', '.jpeg', '.png'] if image_path.lower().endswith(x)]
+        if len(ext) == 0:
             return
 
         image = Image.open(image_path)
@@ -221,11 +221,12 @@ class Attachment(object):
         if new_width > max_width:
             new_width = max_width
             new_height = round(new_width / image.width * image.height)
-        elif new_height > max_height:
+
+        if new_height > max_height:
             new_width = round(max_height / new_height * new_width)
             new_height = max_height
 
-        exif = image.info['exif']
+        exif = image.info.get('exif', b'')
         image.resize((new_width, new_height), Image.ANTIALIAS)\
             .save(image_path, exif=exif)
 
